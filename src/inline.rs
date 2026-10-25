@@ -1,6 +1,6 @@
 //! Implementation of the [`ArrVecMin`] type.
 
-// This code was modified by mikatschuh
+// This code was added by mikatschuh
 
 use alloc::borrow::Cow;
 use alloc::boxed::Box;

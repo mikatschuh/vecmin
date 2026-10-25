@@ -1,6 +1,8 @@
 //! Provides a `VecMin` and `VecOne` newtype wrapper around `Vec` that enforces a minimum length at compile time.
 //! Also provides the `ArrVecMin` wrapper that has the same guaranties as `VecMin` but stores the guarantied elements on the stack.
 
+// This file was modified by mikatschuh to add a corresponding `arrvecmin` macro
+
 #![no_std]
 
 pub mod inline;
