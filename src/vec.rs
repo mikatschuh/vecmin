@@ -1,5 +1,7 @@
 //! Implementation of the [`VecMin`] and [`VecOne`] newtypes.
 
+// The documentation comment on `VecMin` has been modified by mikatschuh to include a reference to `ArrVecMin`
+
 use alloc::borrow::Cow;
 use alloc::boxed::Box;
 use alloc::collections::TryReserveError;
@@ -23,6 +25,9 @@ pub type VecOne<T> = VecMin<T, 1>;
 /// Most methods of `Vec` are available on `VecMin` except those that reduce the length of the vector an unknown amount.
 /// Methods that reduce the length of the vector by a known amount (e.g. `remove`, `truncate`) are available on `VecMin`
 /// but return an error if the operation would reduce the length of the vector below `M`.
+///
+/// Other than ArrVecMin, this implementation stores all of it's elements on the heap in a single allocation,
+/// i.e. it's just a `Vec` newtype.
 #[repr(transparent)]
 #[derive(Clone, Debug, Hash)]
 pub struct VecMin<T, const M: usize> {
