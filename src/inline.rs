@@ -159,22 +159,51 @@ impl<T, const M: usize> ArrVecMin<T, M> {
         Ok(Self { arr, vec })
     }
 
+    /// Returns a reference to the stack head, excluding the last `length - M` heap elements.
+    #[inline]
+    pub fn head(&self) -> &[T; M] {
+        &self.arr
+    }
+
+    /// Returns a mutable reference to the stack head, excluding the last `length - M` heap elements.
+    #[inline]
+    pub fn head_mut(&mut self) -> &mut [T; M] {
+        &mut self.arr
+    }
+
+    /// Returns a reference to the heap tail, excluding the first `M` inline elements.
+    #[inline]
+    pub fn tail(&self) -> &Vec<T> {
+        &self.vec
+    }
+
+    /// Returns a mutable reference to the heap tail, excluding the first `M` inline elements.
+    #[inline]
+    pub fn tail_mut(&mut self) -> &mut Vec<T> {
+        &mut self.vec
+    }
+
     /// Collects all elements into a contiguous `Vec`, consuming the `ArrVecMin`.
     #[inline]
     pub fn into_vec(self) -> Vec<T> {
         self.into_iter().collect()
     }
 
-    /// Returns the heap tail, excluding the first `M` inline elements.
-    #[inline]
-    pub fn tail(&self) -> &Vec<T> {
-        &self.vec
-    }
-
     /// See [`Vec::into_boxed_slice`].
     #[inline]
     pub fn into_boxed_slice(self) -> Box<[T]> {
         self.into_vec().into_boxed_slice()
+    }
+
+    #[inline]
+    pub fn clone_take_into_iter(&mut self) -> impl Iterator<Item = T>
+    where
+        T: Clone,
+    {
+        self.arr
+            .clone()
+            .into_iter()
+            .chain(core::mem::take(&mut self.vec))
     }
 
     /// See [`Vec::leak`].
