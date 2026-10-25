@@ -196,7 +196,9 @@ impl<T, const M: usize> ArrVecMin<T, M> {
     }
 
     #[inline]
-    pub fn clone_take_into_iter(&mut self) -> impl Iterator<Item = T>
+    pub fn clone_take_into_iter(
+        &mut self,
+    ) -> Chain<core::array::IntoIter<T, M>, alloc::vec::IntoIter<T>>
     where
         T: Clone,
     {
