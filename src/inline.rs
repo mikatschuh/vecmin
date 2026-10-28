@@ -552,6 +552,175 @@ impl<T, const M: usize> ArrVecMin<T, M> {
     }
 }
 
+// --- Searching and order ---
+impl<T, const M: usize> ArrVecMin<T, M> {
+    /// See [`slice::contains`]. Searches both storage regions.
+    #[inline]
+    pub fn contains(&self, value: &T) -> bool
+    where
+        T: PartialEq,
+    {
+        self.arr.contains(value) || self.vec.contains(value)
+    }
+
+    /// See [`slice::starts_with`]. The prefix may cross the storage boundary.
+    pub fn starts_with(&self, needle: &[T]) -> bool
+    where
+        T: PartialEq,
+    {
+        needle.len() <= self.len() && self.iter().take(needle.len()).eq(needle.iter())
+    }
+
+    /// See [`slice::ends_with`]. The suffix may cross the storage boundary.
+    pub fn ends_with(&self, needle: &[T]) -> bool
+    where
+        T: PartialEq,
+    {
+        needle.len() <= self.len()
+            && self
+                .iter()
+                .skip(self.len() - needle.len())
+                .eq(needle.iter())
+    }
+
+    /// See [`slice::binary_search`]. The entire logical sequence must be sorted.
+    /// Returns a logical index spanning both storage regions.
+    pub fn binary_search(&self, value: &T) -> Result<usize, usize>
+    where
+        T: Ord,
+    {
+        self.binary_search_by(|probe| probe.cmp(value))
+    }
+
+    /// See [`slice::binary_search_by`]. The entire sequence must be sorted
+    /// consistently with the comparator. Any matching index may be returned.
+    pub fn binary_search_by<'a, F>(&'a self, mut compare: F) -> Result<usize, usize>
+    where
+        F: FnMut(&'a T) -> Ordering,
+    {
+        let mut left = 0;
+        let mut right = self.len();
+        while left < right {
+            let mid = left + (right - left) / 2;
+            match compare(&self[mid]) {
+                Ordering::Less => left = mid + 1,
+                Ordering::Greater => right = mid,
+                Ordering::Equal => return Ok(mid),
+            }
+        }
+        Err(left)
+    }
+
+    /// See [`slice::binary_search_by_key`]. The entire sequence must be sorted
+    /// by the extracted key. Returns a logical index spanning both regions.
+    pub fn binary_search_by_key<'a, B, F>(&'a self, key: &B, mut f: F) -> Result<usize, usize>
+    where
+        B: Ord,
+        F: FnMut(&'a T) -> B,
+    {
+        self.binary_search_by(|probe| f(probe).cmp(key))
+    }
+
+    /// See [`slice::partition_point`]. The entire sequence must be partitioned
+    /// with matching elements before nonmatching elements.
+    pub fn partition_point<P>(&self, mut pred: P) -> usize
+    where
+        P: FnMut(&T) -> bool,
+    {
+        let mut left = 0;
+        let mut right = self.len();
+        while left < right {
+            let mid = left + (right - left) / 2;
+            if pred(&self[mid]) {
+                left = mid + 1;
+            } else {
+                right = mid;
+            }
+        }
+        left
+    }
+
+    /// See [`slice::is_sorted`]. Includes the adjacent pair at the storage boundary.
+    #[inline]
+    pub fn is_sorted(&self) -> bool
+    where
+        T: PartialOrd,
+    {
+        self.iter().is_sorted()
+    }
+
+    /// See [`slice::is_sorted_by`]. Includes the adjacent pair at the storage boundary.
+    pub fn is_sorted_by<'a, F>(&'a self, mut compare: F) -> bool
+    where
+        F: FnMut(&'a T, &'a T) -> bool,
+    {
+        self.iter().is_sorted_by(|a, b| compare(a, b))
+    }
+
+    /// See [`slice::is_sorted_by_key`]. Checks keys across both storage regions.
+    #[inline]
+    pub fn is_sorted_by_key<'a, F, K>(&'a self, f: F) -> bool
+    where
+        F: FnMut(&'a T) -> K,
+        K: PartialOrd,
+    {
+        self.iter().is_sorted_by_key(f)
+    }
+}
+
+// --- Rearranging and filling ---
+impl<T, const M: usize> ArrVecMin<T, M> {
+    /// See [`slice::reverse`]. Reverses the entire logical sequence in place.
+    pub fn reverse(&mut self) {
+        self.reverse_range(0, self.len());
+    }
+
+    /// See [`slice::rotate_left`]. Rotates across both storage regions in place.
+    /// Panics if `mid` exceeds the total length.
+    pub fn rotate_left(&mut self, mid: usize) {
+        let len = self.len();
+        assert!(mid <= len, "rotation amount exceeds length");
+        if mid == 0 || mid == len {
+            return;
+        }
+        self.reverse_range(0, mid);
+        self.reverse_range(mid, len);
+        self.reverse_range(0, len);
+    }
+
+    /// See [`slice::rotate_right`]. Rotates across both storage regions in place.
+    /// Panics if `k` exceeds the total length.
+    pub fn rotate_right(&mut self, k: usize) {
+        let len = self.len();
+        assert!(k <= len, "rotation amount exceeds length");
+        self.rotate_left(len - k);
+    }
+
+    /// See [`slice::fill`]. Replaces elements in both storage regions.
+    pub fn fill(&mut self, value: T)
+    where
+        T: Clone,
+    {
+        let mut iter = self.iter_mut();
+        if let Some(last) = iter.next_back() {
+            for item in iter {
+                item.clone_from(&value);
+            }
+            *last = value;
+        }
+    }
+
+    /// See [`slice::fill_with`]. Calls the generator in logical element order.
+    pub fn fill_with<F>(&mut self, mut f: F)
+    where
+        F: FnMut() -> T,
+    {
+        for item in self.iter_mut() {
+            *item = f();
+        }
+    }
+}
+
 // --- Mutable Access ---
 
 // -- Not Len Decreasing --
