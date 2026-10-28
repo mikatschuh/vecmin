@@ -457,19 +457,27 @@ impl<T, const M: usize> ArrVecMin<T, M> {
     }
 
     /// Swaps two elements, allowing indices in either storage region.
-    pub fn swap(&mut self, a: usize, b: usize) {
+    pub const fn swap(&mut self, a: usize, b: usize) {
         assert!(a < self.len() && b < self.len(), "index out of bounds");
         match (a < M, b < M) {
             (true, true) => self.arr.swap(a, b),
-            (false, false) => self.vec.swap(a - M, b - M),
-            (true, false) => core::mem::swap(&mut self.arr[a], &mut self.vec[b - M]),
-            (false, true) => core::mem::swap(&mut self.vec[a - M], &mut self.arr[b]),
+            (false, false) => self.split_at_min_mut().1.swap(a - M, b - M),
+            (true, false) => {
+                let (arr, vec) = self.split_at_min_mut();
+                core::mem::swap(&mut arr[a], &mut vec[b - M])
+            }
+            (false, true) => {
+                let (arr, vec) = self.split_at_min_mut();
+                core::mem::swap(&mut vec[a - M], &mut arr[b])
+            }
         }
     }
 
-    fn reverse_range(&mut self, start: usize, end: usize) {
-        for offset in 0..(end - start) / 2 {
+    const fn reverse_range(&mut self, start: usize, end: usize) {
+        let mut offset = 0;
+        while offset < (end - start) / 2 {
             self.swap(start + offset, end - 1 - offset);
+            offset += 1;
         }
     }
 }
@@ -671,13 +679,13 @@ impl<T, const M: usize> ArrVecMin<T, M> {
 // --- Rearranging and filling ---
 impl<T, const M: usize> ArrVecMin<T, M> {
     /// See [`slice::reverse`]. Reverses the entire logical sequence in place.
-    pub fn reverse(&mut self) {
+    pub const fn reverse(&mut self) {
         self.reverse_range(0, self.len());
     }
 
     /// See [`slice::rotate_left`]. Rotates across both storage regions in place.
     /// Panics if `mid` exceeds the total length.
-    pub fn rotate_left(&mut self, mid: usize) {
+    pub const fn rotate_left(&mut self, mid: usize) {
         let len = self.len();
         assert!(mid <= len, "rotation amount exceeds length");
         if mid == 0 || mid == len {
@@ -690,7 +698,7 @@ impl<T, const M: usize> ArrVecMin<T, M> {
 
     /// See [`slice::rotate_right`]. Rotates across both storage regions in place.
     /// Panics if `k` exceeds the total length.
-    pub fn rotate_right(&mut self, k: usize) {
+    pub const fn rotate_right(&mut self, k: usize) {
         let len = self.len();
         assert!(k <= len, "rotation amount exceeds length");
         self.rotate_left(len - k);

@@ -230,7 +230,7 @@ impl<T, const M: usize> VecMin<T, M> {
 
     /// Returns a reference to the inner `Vec`.
     #[inline]
-    pub fn vec(&self) -> &Vec<T> {
+    pub const fn vec(&self) -> &Vec<T> {
         &self.vec
     }
 
