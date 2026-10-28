@@ -76,9 +76,9 @@ impl<T, const M: usize> ArrVecMin<T, M> {
     /// let _ = values.get_min::<2>();
     /// ```
     #[inline]
-    pub const fn get_min<const I: usize>(&self) -> &T {
+    pub fn get_min<const I: usize>(&self) -> &T {
         const { assert!(I < M, "index must be within the guaranteed minimum") };
-        &self.min_slice()[I]
+        unsafe { self.min_slice().get_unchecked(I) }
     }
 
     /// Returns a mutable element at `I` within the guaranteed minimum.
@@ -91,9 +91,9 @@ impl<T, const M: usize> ArrVecMin<T, M> {
     /// let _ = values.get_min_mut::<2>();
     /// ```
     #[inline]
-    pub const fn get_min_mut<const I: usize>(&mut self) -> &mut T {
+    pub fn get_min_mut<const I: usize>(&mut self) -> &mut T {
         const { assert!(I < M, "index must be within the guaranteed minimum") };
-        &mut self.min_slice_mut()[I]
+        unsafe { self.min_slice_mut().get_unchecked_mut(I) }
     }
 
     /// Returns a tuple of a slice to the first `M` elements of the vector, which are guaranteed to exist, and a slice to the remaining elements of the vector.
@@ -392,9 +392,9 @@ impl<T, const M: usize> ArrVecMin<T, M> {
     /// let _ = values.first();
     /// ```
     #[inline]
-    pub const fn first(&self) -> &T {
+    pub fn first(&self) -> &T {
         const { assert!(M != 0, "first requires a nonzero minimum") };
-        &self.min_slice()[0]
+        unsafe { self.min_slice().get_unchecked(0) }
     }
 
     /// Returns a mutable reference to the first element.
@@ -407,9 +407,9 @@ impl<T, const M: usize> ArrVecMin<T, M> {
     /// let _ = values.first_mut();
     /// ```
     #[inline]
-    pub const fn first_mut(&mut self) -> &mut T {
+    pub fn first_mut(&mut self) -> &mut T {
         const { assert!(M != 0, "first_mut requires a nonzero minimum") };
-        &mut self.min_slice_mut()[0]
+        unsafe { self.min_slice_mut().get_unchecked_mut(0) }
     }
 
     /// Returns a reference to the last element.

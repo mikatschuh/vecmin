@@ -24,11 +24,11 @@ fn array_constructors_keep_all_elements() {
 }
 
 #[test]
-fn const_indices_access_and_mutate_guaranteed_elements() {
-    const fn inline_at_one(values: &ArrVecMin<i32, 2>) -> &i32 {
+fn indices_access_and_mutate_guaranteed_elements() {
+    fn inline_at_one(values: &ArrVecMin<i32, 2>) -> &i32 {
         values.get_min::<1>()
     }
-    const fn heap_at_one(values: &VecMin<i32, 2>) -> &i32 {
+    fn heap_at_one(values: &VecMin<i32, 2>) -> &i32 {
         values.get_min::<1>()
     }
 
