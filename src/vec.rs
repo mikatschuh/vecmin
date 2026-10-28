@@ -1,6 +1,6 @@
 //! Implementation of the [`VecMin`] and [`VecOne`] newtypes.
 
-// The documentation comment on `VecMin` has been modified by mikatschuh to include a reference to `ArrVecMin`
+// This file was modified by Mikatschuh
 
 use alloc::borrow::Cow;
 use alloc::boxed::Box;
@@ -19,6 +19,9 @@ use crate::{ModifyError, slice_range};
 
 /// A [`VecMin`] with a minimum length of 1.
 pub type VecOne<T> = VecMin<T, 1>;
+
+/// A [`VecMin`] with a minimum length of 2.
+pub type VecTwo<T> = VecMin<T, 2>;
 
 /// A vector with a minimum length of `M`.
 ///

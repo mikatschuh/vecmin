@@ -1,3 +1,5 @@
+// These tests have been added by Mikatschuh
+
 use vecmin::{ArrVecMin, VecMin, arrvecmin, vecmin};
 
 #[test]

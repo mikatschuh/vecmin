@@ -18,6 +18,12 @@ use core::slice;
 
 use crate::{ModifyError, slice_range};
 
+/// An [`ArrVecMin`] with a minimum length of 1.
+pub type ArrVecOne<T> = ArrVecMin<T, 1>;
+
+/// An [`ArrVecMin`] with a minimum length of 2.
+pub type ArrVecTwo<T> = ArrVecMin<T, 2>;
+
 /// A vector with a minimum length of `M`.
 ///
 /// Most methods of `Vec` are available on `ArrVecMin` except those that reduce the length of the vector an unknown amount.

@@ -6,7 +6,7 @@
 //! when the relevant code is instantiated during a full build. `cargo check`
 //! alone may not diagnose a failed assertion.
 
-// This file was modified by mikatschuh to add a corresponding `arrvecmin` macro
+// This file was modified by mikatschuh to add the corresponding `arrvecmin` and `vectwo` macros
 
 #![no_std]
 
@@ -88,6 +88,20 @@ macro_rules! vecone {
     };
     ($elem:expr; $n:expr) => {
         $crate::vecmin![1; [$elem; $n]]
+    };
+}
+
+/// Creates a [`VecTwo`] containing the arguments.
+///
+/// `vectwo!` allows `VecTwo`s to be defined with similar syntax to `vec!`, but with a minimum length of 2.
+/// The length must be constant, for non-constant length use checked constructors.
+#[macro_export]
+macro_rules! vectwo {
+    ($($x:expr),+ $(,)?) => {
+        $crate::vecmin![2; [$($x),+]]
+    };
+    ($elem:expr; $n:expr) => {
+        $crate::vecmin![2; [$elem; $n]]
     };
 }
 
