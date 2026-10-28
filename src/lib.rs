@@ -1,6 +1,11 @@
 //! Provides a `VecMin` and `VecOne` newtype wrapper around `Vec` that enforces a minimum length at compile time.
 //! Also provides the `ArrVecMin` wrapper that has the same guaranties as `VecMin` but stores the guarantied elements on the stack.
 
+//!
+//! Const-generic assertions in constructors, accessors, and macros are evaluated
+//! when the relevant code is instantiated during a full build. `cargo check`
+//! alone may not diagnose a failed assertion.
+
 // This file was modified by mikatschuh to add a corresponding `arrvecmin` macro
 
 #![no_std]
@@ -116,26 +121,42 @@ macro_rules! vecone {
 /// assert!(v.is_minimum());
 /// assert_eq!(v.minimum(), 3);
 /// ```
+///
+/// A length below the minimum is rejected at compile time:
+///
+/// ```compile_fail
+/// use vecmin::vecmin;
+/// let _ = vecmin![3; [1, 2]];
+/// ```
+///
+/// ```compile_fail
+/// use vecmin::vecmin;
+/// let _ = vecmin![3; [1; 2]];
+/// ```
 #[macro_export]
 macro_rules! vecmin {
     ($min:expr; [$x:expr; $n:expr]) => {{
-        let _: [(); $n - $min];
+        const { assert!($n >= $min, "length must be at least the minimum") };
         let vec = $crate::__alloc::vec![$x; $n];
         // Safety: The compile-time length check guarantees at least `$min` elements.
         unsafe { $crate::VecMin::<_, $min>::from_vec_unchecked(vec) }
     }};
     ($min:expr; [$($x:expr),+ $(,)?]) => {{
-        const N: usize = <[()]>::len(&[$( { let _ = &$x; }),+]);
-        let _: [(); N - $min];
+        const {
+            assert!(
+                <[()]>::len(&[$({ let _ = ::core::stringify!($x); }),+]) >= $min,
+                "length must be at least the minimum"
+            )
+        };
         let vec = $crate::__alloc::vec![$($x),+];
         // Safety: The compile-time length check guarantees at least `$min` elements.
         unsafe { $crate::VecMin::<_, $min>::from_vec_unchecked(vec) }
     }};
     ($x:expr; $n:expr) => {
-        $crate::VecMin::from_array([$x; $n])
+        $crate::VecMin::<_, { $n }>::from_array([$x; $n])
     };
     ($($x:expr),+ $(,)?) => {
-        $crate::VecMin::from_array([$($x),+])
+        $crate::VecMin::<_, { <[()]>::len(&[$({ let _ = ::core::stringify!($x); }),+]) }>::from_array([$($x),+])
     };
 }
 
@@ -180,20 +201,25 @@ macro_rules! vecmin {
 #[macro_export]
 macro_rules! arrvecmin {
     ($min:expr; [$x:expr; $n:expr]) => {{
-        let _: [(); $n - $min];
+        const { assert!($n >= $min, "length must be at least the minimum") };
         $crate::ArrVecMin::<_, { $min }>::collect(::core::iter::repeat_n($x, $n))
             .unwrap_or_else(|_| ::core::unreachable!("length is checked at compile time"))
     }};
     ($min:expr; [$($x:expr),* $(,)?]) => {{
-        let _: [(); <[()]>::len(&[$({ let _ = ::core::stringify!($x); }),*]) - $min];
+        const {
+            assert!(
+                <[()]>::len(&[$({ let _ = ::core::stringify!($x); }),*]) >= $min,
+                "length must be at least the minimum"
+            )
+        };
         $crate::ArrVecMin::<_, { $min }>::collect([$($x),*])
             .unwrap_or_else(|_| ::core::unreachable!("length is checked at compile time"))
     }};
     ($x:expr; $n:expr) => {
-        $crate::ArrVecMin::new([$x; $n])
+        $crate::ArrVecMin::<_, { $n }>::new([$x; $n])
     };
     ($($x:expr),* $(,)?) => {
-        $crate::ArrVecMin::new([$($x),*])
+        $crate::ArrVecMin::<_, { <[()]>::len(&[$({ let _ = ::core::stringify!($x); }),*]) }>::new([$($x),*])
     };
 }
 

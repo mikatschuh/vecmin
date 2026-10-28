@@ -12,8 +12,8 @@ use core::error::Error;
 use core::fmt::{self, Debug, Display, Formatter};
 use core::iter::repeat_with;
 use core::mem::MaybeUninit;
-use core::ops::{Deref, DerefMut, RangeBounds};
-use core::slice;
+use core::ops::{Deref, DerefMut, Index, IndexMut, RangeBounds};
+use core::slice::{self, SliceIndex};
 
 use crate::{ModifyError, slice_range};
 
@@ -72,6 +72,42 @@ impl<T, const M: usize> VecMin<T, M> {
     #[inline]
     pub const fn min_slice_mut(&mut self) -> &mut [T; M] {
         self.split_at_min_mut().0
+    }
+
+    /// Returns the element at `I` within the guaranteed minimum.
+    ///
+    /// `I < M` is checked at compile time when this method is instantiated.
+    ///
+    /// ```
+    /// use vecmin::VecMin;
+    /// let values = VecMin::<_, 2>::from_array([10, 20, 30]);
+    /// assert_eq!(*values.get_min::<1>(), 20);
+    /// ```
+    ///
+    /// ```compile_fail
+    /// use vecmin::VecMin;
+    /// let values = VecMin::<_, 2>::from_array([10, 20, 30]);
+    /// let _ = values.get_min::<2>();
+    /// ```
+    #[inline]
+    pub const fn get_min<const I: usize>(&self) -> &T {
+        const { assert!(I < M, "index must be within the guaranteed minimum") };
+        &self.min_slice()[I]
+    }
+
+    /// Returns a mutable element at `I` within the guaranteed minimum.
+    ///
+    /// `I < M` is checked at compile time when this method is instantiated.
+    ///
+    /// ```compile_fail
+    /// use vecmin::VecMin;
+    /// let mut values = VecMin::<_, 2>::from_array([10, 20, 30]);
+    /// let _ = values.get_min_mut::<2>();
+    /// ```
+    #[inline]
+    pub const fn get_min_mut<const I: usize>(&mut self) -> &mut T {
+        const { assert!(I < M, "index must be within the guaranteed minimum") };
+        &mut self.min_slice_mut()[I]
     }
 
     /// Returns a tuple of a slice to the first `M` elements of the vector, which are guaranteed to exist, and a slice to the remaining elements of the vector.
@@ -141,11 +177,27 @@ impl<T, const M: usize> VecMin<T, M> {
         Self::try_from_vec(vec.into())
     }
 
-    /// Creates a new `VecMin` from an array containing the minimum elements.
+    /// Creates a `VecMin` from an array with at least `M` elements.
+    ///
+    /// `N >= M` is checked at compile time when this constructor is instantiated.
+    /// Use [`Self::try_new`] for a conversion that returns an error instead.
+    ///
+    /// ```
+    /// use vecmin::VecMin;
+    /// let values = VecMin::<_, 2>::from_array([1, 2, 3]);
+    /// assert_eq!(values.len(), 3);
+    /// assert_eq!(values.minimum(), 2);
+    /// ```
+    ///
+    /// ```compile_fail
+    /// use vecmin::VecMin;
+    /// let _ = VecMin::<_, 3>::from_array([1, 2]);
+    /// ```
     #[inline]
-    pub fn from_array(array: [T; M]) -> Self {
-        // Safety: An array of length `M` is guaranteed to have a length of at least `M`.
-        unsafe { Self::from_vec_unchecked(array.into()) }
+    pub fn from_array<const N: usize>(arr: [T; N]) -> Self {
+        const { assert!(N >= M, "array is shorter than the minimum") };
+        // Safety: The compile-time assertion guarantees at least `M` elements.
+        unsafe { Self::from_vec_unchecked(arr.into()) }
     }
 
     /// Creates a new `VecMin` from an iterator, returning an error if the length of the collected `Vec` is less than `M`.
@@ -304,6 +356,84 @@ impl<T, const N: usize, const M: usize> TryFrom<VecMin<T, M>> for [T; N] {
 
 // --- View ---
 impl<T, const M: usize> VecMin<T, M> {
+    /// Returns an element or subslice, or `None` if the index is out of bounds.
+    #[inline]
+    pub fn get<I: SliceIndex<[T]>>(&self, index: I) -> Option<&I::Output> {
+        self.vec.get(index)
+    }
+
+    /// Returns a mutable element or subslice, or `None` if the index is out of bounds.
+    #[inline]
+    pub fn get_mut<I: SliceIndex<[T]>>(&mut self, index: I) -> Option<&mut I::Output> {
+        self.vec.get_mut(index)
+    }
+
+    /// Returns a reference to the first element.
+    ///
+    /// Requires `M > 0`, checked at compile time when this method is instantiated.
+    ///
+    /// ```compile_fail
+    /// use vecmin::VecMin;
+    /// let values = VecMin::<_, 0>::from_array([1, 2]);
+    /// let _ = values.first();
+    /// ```
+    #[inline]
+    pub const fn first(&self) -> &T {
+        const { assert!(M != 0, "first requires a nonzero minimum") };
+        &self.min_slice()[0]
+    }
+
+    /// Returns a mutable reference to the first element.
+    ///
+    /// Requires `M > 0`, checked at compile time when this method is instantiated.
+    ///
+    /// ```compile_fail
+    /// use vecmin::VecMin;
+    /// let mut values = VecMin::<_, 0>::from_array([1, 2]);
+    /// let _ = values.first_mut();
+    /// ```
+    #[inline]
+    pub const fn first_mut(&mut self) -> &mut T {
+        const { assert!(M != 0, "first_mut requires a nonzero minimum") };
+        &mut self.min_slice_mut()[0]
+    }
+
+    /// Returns a reference to the last element.
+    ///
+    /// Requires `M > 0`, checked at compile time when this method is instantiated.
+    ///
+    /// ```compile_fail
+    /// use vecmin::VecMin;
+    /// let values = VecMin::<_, 0>::from_array([1, 2]);
+    /// let _ = values.last();
+    /// ```
+    #[inline]
+    pub const fn last(&self) -> &T {
+        const { assert!(M != 0, "last requires a nonzero minimum") };
+        self.vec
+            .as_slice()
+            .last()
+            .expect("nonzero minimum guarantees an element")
+    }
+
+    /// Returns a mutable reference to the last element.
+    ///
+    /// Requires `M > 0`, checked at compile time when this method is instantiated.
+    ///
+    /// ```compile_fail
+    /// use vecmin::VecMin;
+    /// let mut values = VecMin::<_, 0>::from_array([1, 2]);
+    /// let _ = values.last_mut();
+    /// ```
+    #[inline]
+    pub const fn last_mut(&mut self) -> &mut T {
+        const { assert!(M != 0, "last_mut requires a nonzero minimum") };
+        self.vec
+            .as_mut_slice()
+            .last_mut()
+            .expect("nonzero minimum guarantees an element")
+    }
+
     #[inline]
     /// See [`Vec::as_slice`].
     pub const fn as_slice(&self) -> &[T] {
@@ -332,6 +462,24 @@ impl<T, const M: usize> VecMin<T, M> {
     #[inline]
     pub fn spare_capacity_mut(&mut self) -> &mut [MaybeUninit<T>] {
         self.vec.spare_capacity_mut()
+    }
+}
+
+impl<T, const M: usize, I: SliceIndex<[T]>> Index<I> for VecMin<T, M> {
+    type Output = I::Output;
+
+    #[inline]
+    #[track_caller]
+    fn index(&self, index: I) -> &Self::Output {
+        &self.vec[index]
+    }
+}
+
+impl<T, const M: usize, I: SliceIndex<[T]>> IndexMut<I> for VecMin<T, M> {
+    #[inline]
+    #[track_caller]
+    fn index_mut(&mut self, index: I) -> &mut Self::Output {
+        &mut self.vec[index]
     }
 }
 

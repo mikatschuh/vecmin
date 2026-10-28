@@ -71,7 +71,7 @@ fn constructors_conversions_and_views() {
     assert!(MIN.is_minimum());
     let mut v = ArrVecMin::<_, 2>::try_from(vec![1, 2, 3, 4]).unwrap();
     assert_eq!(v.split_at_min(), (&[1, 2], &[3, 4][..]));
-    assert_eq!(v.tail(), &[3, 4]);
+    assert_eq!(v.split_at_min().1, &[3, 4]);
     assert_eq!(v.get(4), None);
     v[0] = 5;
     *v.get_mut(2).unwrap() = 6;
@@ -276,7 +276,10 @@ fn macro_moves_elements_and_evaluates_once_in_order() {
     assert_eq!(next, 3);
     let first = String::from("first");
     let last = String::from("last");
-    assert_eq!(arrvecmin![1; [first, last]].into_vec(), vec!["first", "last"]);
+    assert_eq!(
+        arrvecmin![1; [first, last]].into_vec(),
+        vec!["first", "last"]
+    );
     let first = String::from("first");
     assert_eq!(arrvecmin![first].into_vec(), vec!["first"]);
     let mut calls = 0;

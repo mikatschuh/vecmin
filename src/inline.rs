@@ -60,6 +60,42 @@ impl<T, const M: usize> ArrVecMin<T, M> {
         &mut self.arr
     }
 
+    /// Returns the element at `I` within the guaranteed minimum.
+    ///
+    /// `I < M` is checked at compile time when this method is instantiated.
+    ///
+    /// ```
+    /// use vecmin::ArrVecMin;
+    /// let values = ArrVecMin::<_, 2>::from_array([10, 20, 30]);
+    /// assert_eq!(*values.get_min::<1>(), 20);
+    /// ```
+    ///
+    /// ```compile_fail
+    /// use vecmin::ArrVecMin;
+    /// let values = ArrVecMin::<_, 2>::from_array([10, 20, 30]);
+    /// let _ = values.get_min::<2>();
+    /// ```
+    #[inline]
+    pub const fn get_min<const I: usize>(&self) -> &T {
+        const { assert!(I < M, "index must be within the guaranteed minimum") };
+        &self.min_slice()[I]
+    }
+
+    /// Returns a mutable element at `I` within the guaranteed minimum.
+    ///
+    /// `I < M` is checked at compile time when this method is instantiated.
+    ///
+    /// ```compile_fail
+    /// use vecmin::ArrVecMin;
+    /// let mut values = ArrVecMin::<_, 2>::from_array([10, 20, 30]);
+    /// let _ = values.get_min_mut::<2>();
+    /// ```
+    #[inline]
+    pub const fn get_min_mut<const I: usize>(&mut self) -> &mut T {
+        const { assert!(I < M, "index must be within the guaranteed minimum") };
+        &mut self.min_slice_mut()[I]
+    }
+
     /// Returns a tuple of a slice to the first `M` elements of the vector, which are guaranteed to exist, and a slice to the remaining elements of the vector.
     #[inline]
     pub const fn split_at_min(&self) -> (&[T; M], &[T]) {
@@ -100,6 +136,31 @@ impl<T, const M: usize> ArrVecMin<T, M> {
             arr: min,
             vec: Vec::new(),
         }
+    }
+
+    /// Creates an `ArrVecMin` from an array with at least `M` elements.
+    ///
+    /// `N >= M` is checked at compile time when this constructor is instantiated.
+    /// Use [`Self::try_new`] for a conversion that returns an error instead.
+    ///
+    /// ```
+    /// use vecmin::ArrVecMin;
+    /// let values = ArrVecMin::<_, 2>::from_array([1, 2, 3]);
+    /// assert_eq!(values.len(), 3);
+    /// assert_eq!(values.minimum(), 2);
+    /// ```
+    ///
+    /// ```compile_fail
+    /// use vecmin::ArrVecMin;
+    /// let _ = ArrVecMin::<_, 3>::from_array([1, 2]);
+    /// ```
+    #[inline]
+    pub fn from_array<const N: usize>(arr: [T; N]) -> Self {
+        const { assert!(N >= M, "array is shorter than the minimum") };
+        let mut iter = arr.into_iter();
+        let arr = array::from_fn(|_| unsafe { iter.next().unwrap_unchecked() });
+        let vec = iter.collect();
+        Self { arr, vec }
     }
 
     /// Creates a new `ArrVecMin` from a `Vec`
@@ -153,34 +214,10 @@ impl<T, const M: usize> ArrVecMin<T, M> {
         if prefix.iter().any(Option::is_none) {
             return Err(ConstructError(prefix.into_iter().flatten().collect()));
         }
-        let arr = prefix.map(|item| item.expect("minimum length was checked"));
+        let arr = prefix.map(|item| unsafe { item.unwrap_unchecked() });
         let mut vec = Vec::with_capacity(capacity.saturating_sub(M));
         vec.extend(iter);
         Ok(Self { arr, vec })
-    }
-
-    /// Returns a reference to the stack head, excluding the last `length - M` heap elements.
-    #[inline]
-    pub fn head(&self) -> &[T; M] {
-        &self.arr
-    }
-
-    /// Returns a mutable reference to the stack head, excluding the last `length - M` heap elements.
-    #[inline]
-    pub fn head_mut(&mut self) -> &mut [T; M] {
-        &mut self.arr
-    }
-
-    /// Returns a reference to the heap tail, excluding the first `M` inline elements.
-    #[inline]
-    pub fn tail(&self) -> &Vec<T> {
-        &self.vec
-    }
-
-    /// Returns a mutable reference to the heap tail, excluding the first `M` inline elements.
-    #[inline]
-    pub fn tail_mut(&mut self) -> &mut Vec<T> {
-        &mut self.vec
     }
 
     /// Collects all elements into a contiguous `Vec`, consuming the `ArrVecMin`.
@@ -318,7 +355,7 @@ impl<T, const N: usize, const M: usize> TryFrom<ArrVecMin<T, M>> for [T; N] {
         }
         Ok(array::from_fn({
             let mut iter = vec_min.into_iter();
-            move |_| iter.next().expect("length was checked")
+            move |_| unsafe { iter.next().unwrap_unchecked() }
         }))
     }
 }
@@ -343,6 +380,74 @@ impl<T, const M: usize> ArrVecMin<T, M> {
         } else {
             self.vec.get_mut(index - M)
         }
+    }
+
+    /// Returns a reference to the first element.
+    ///
+    /// Requires `M > 0`, checked at compile time when this method is instantiated.
+    ///
+    /// ```compile_fail
+    /// use vecmin::ArrVecMin;
+    /// let values = ArrVecMin::<_, 0>::from_array([1, 2]);
+    /// let _ = values.first();
+    /// ```
+    #[inline]
+    pub const fn first(&self) -> &T {
+        const { assert!(M != 0, "first requires a nonzero minimum") };
+        &self.min_slice()[0]
+    }
+
+    /// Returns a mutable reference to the first element.
+    ///
+    /// Requires `M > 0`, checked at compile time when this method is instantiated.
+    ///
+    /// ```compile_fail
+    /// use vecmin::ArrVecMin;
+    /// let mut values = ArrVecMin::<_, 0>::from_array([1, 2]);
+    /// let _ = values.first_mut();
+    /// ```
+    #[inline]
+    pub const fn first_mut(&mut self) -> &mut T {
+        const { assert!(M != 0, "first_mut requires a nonzero minimum") };
+        &mut self.min_slice_mut()[0]
+    }
+
+    /// Returns a reference to the last element.
+    ///
+    /// Requires `M` to not be zero.
+    ///
+    /// ```compile_fail
+    /// use vecmin::ArrVecMin;
+    /// let values = ArrVecMin::<i32, 0>::new([]);
+    /// let _ = values.last();
+    /// ```
+    #[inline]
+    pub fn last(&self) -> &T {
+        const {
+            assert!(M != 0, "last requires a nonzero minimum");
+        }
+        self.vec
+            .last()
+            .unwrap_or_else(|| unsafe { self.arr.last().unwrap_unchecked() })
+    }
+
+    /// Returns a mutable reference to the last element.
+    ///
+    /// Requires `M` to not be zero.
+    ///
+    /// ```compile_fail
+    /// use vecmin::ArrVecMin;
+    /// let mut values = ArrVecMin::<i32, 0>::new([]);
+    /// let _ = values.last_mut();
+    /// ```
+    #[inline]
+    pub fn last_mut(&mut self) -> &mut T {
+        const {
+            assert!(M != 0, "last requires a nonzero minimum");
+        }
+        self.vec
+            .last_mut()
+            .unwrap_or_else(|| unsafe { self.arr.last_mut().unwrap_unchecked() })
     }
 
     /// Returns the uninitialized spare capacity of the heap tail.
@@ -604,7 +709,7 @@ impl<T, const M: usize> ArrVecMin<T, M> {
         if !self.vec.is_empty() {
             assert!(index < self.len(), "removal index out of bounds");
             if index < M {
-                let replacement = self.vec.pop().expect("tail is nonempty");
+                let replacement = unsafe { self.vec.pop().unwrap_unchecked() };
                 Ok(core::mem::replace(&mut self.arr[index], replacement))
             } else {
                 Ok(self.vec.swap_remove(index - M))
